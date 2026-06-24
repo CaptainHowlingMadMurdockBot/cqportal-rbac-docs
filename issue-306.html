@@ -1,12 +1,12 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>CQPortal RBAC Redesign — Issue #303: Default Affiliate Template</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=Nunito+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CQPortal RBAC Redesign — Issue #306: Teams & Session Scoping</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=Nunito+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 /* ============================================================
    CQPortal RBAC Redesign — Design Documentation Styles
@@ -865,17 +865,13 @@ tbody tr:hover { background: var(--bg-subtle); }
 .fw-700 { font-weight: 700; }
 .text-sm { font-size: 0.85rem; }
 .text-xs { font-size: 0.75rem; }
-
-/* -- Perm matrix responsive overflow -- */
-.perm-matrix-wrap { overflow-x: auto; margin-bottom: 1.5rem; }
-.perm-matrix { min-width: 640px; }
 </style>
 </head>
 <body>
 
 <nav class="nav">
   <div class="container">
-    <a href="epic-300.html" class="nav-brand">CQPortal RBAC <span class="badge-issue">#303</span></a>
+    <a href="epic-300.html" class="nav-brand">CQPortal RBAC <span class="badge-issue">#306</span></a>
     <div class="nav-right">
       <button class="theme-toggle" aria-label="Toggle theme"></button>
     </div>
@@ -884,231 +880,259 @@ tbody tr:hover { background: var(--bg-subtle); }
 
 <div class="container content">
 
-  <div class="breadcrumb">
+  <nav class="breadcrumb">
     <a href="epic-300.html">Epic #300</a>
-    <span class="sep">&rsaquo;</span>
-    <span class="issue-badge">#303</span>
-  </div>
+    <span class="sep">/</span>
+    <span>#306</span>
+  </nav>
 
-  <div class="hero">
-    <h1>Default Affiliate Template</h1>
-    <p>Auto-provision groups and permission sets on affiliate creation</p>
-    <div class="hero-badges">
-      <span class="issue-badge">#303</span>
-      <span class="issue-badge">enhancement</span>
-      <span class="issue-badge dependency">depends on: #301, #302</span>
+  <section class="hero">
+    <div class="container">
+      <h1>Teams &amp; Session Scoping</h1>
+      <p>Teams as membership containers: team model, group auto-grant, and session scoping</p>
+      <div class="hero-badges">
+        <span class="issue-badge">#306</span>
+        <span class="issue-badge">enhancement</span>
+        <span class="issue-badge dependency">depends on: #302, #304, #305</span>
+      </div>
     </div>
-  </div>
+  </section>
 
-  <!-- 1. The Problem -->
-  <h2>The Problem</h2>
-  <p>
-    New affiliates start with zero staff access configuration. An admin has to manually create
-    groups, assign permission sets, and add users &mdash; error-prone and inconsistent across
-    affiliates. Every affiliate reinvents the same wheel, and mistakes in the setup process lead
-    to either over-privileged or under-privileged staff accounts.
-  </p>
-  <p>
-    A standardized default template ensures every affiliate starts from the same secure baseline,
-    with the option to customize from there.
-  </p>
+  <section>
+    <h2>Summary</h2>
+    <p>
+      Teams are a first-class concept above <code>UserGroup</code> (#302). A <strong>Team</strong> is a named
+      group of people that grants <code>UserGroup</code> memberships to its members. This provides two
+      capabilities the base RBAC model cannot express:
+    </p>
+    <ol>
+      <li><strong>Bulk group assignment</strong> &mdash; add a user to a team, they get all groups linked to that team. Remove them, the groups go away (unless directly assigned).</li>
+      <li><strong>Session-scoped access</strong> &mdash; team memberships can be time-limited and session-scoped, so a cabin lead for Session A automatically loses access when Session A ends.</li>
+    </ol>
+    <p>
+      Sixth building block of the affiliate RBAC redesign (#300). Depends on #302 (models) and #304
+      (permission checks). The Teams UI tab in the #305 mockup is implemented by this issue.
+    </p>
+  </section>
 
-  <!-- 2. The Default Template -->
-  <h2>The Default Template</h2>
-  <p>
-    When a new affiliate is created, eight default groups and their corresponding permission sets
-    are auto-provisioned. The matrix below shows which permissions each group receives:
-  </p>
+  <section>
+    <h2>Why Teams?</h2>
+    <p>
+      The <code>UserGroup &rarr; PermissionSet &rarr; Permission</code> model from #301-#305 only supports
+      direct user-to-group assignments. Real camp operations have patterns that don't fit:
+    </p>
+    <table>
+      <thead>
+        <tr>
+          <th>Scenario</th>
+          <th>Today (without teams)</th>
+          <th>With teams</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Session cabin leads</td>
+          <td>Give <code>housing.write</code> permanently, or don't give it at all</td>
+          <td>Session-scoped team grants Housing Coordinator group; membership auto-expires</td>
+        </tr>
+        <tr>
+          <td>Staffing committee</td>
+          <td>Each person individually added to the group</td>
+          <td>Add everyone to the team once; team auto-grants the group</td>
+        </tr>
+        <tr>
+          <td>Multi-hat volunteers</td>
+          <td>Multiple direct group assignments, manually tracked</td>
+          <td>Direct group + team membership; effective permissions are the union</td>
+        </tr>
+        <tr>
+          <td>Medical team rotation</td>
+          <td>Permanently assigned, manually removed later</td>
+          <td>Session-scoped team; access auto-expires with the session</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
 
-  <div class="perm-matrix-wrap">
-  <table class="perm-matrix">
-    <thead>
-      <tr>
-        <th>Permission</th>
-        <th>Affiliate Admin</th>
-        <th>Camp Director</th>
-        <th>Volunteer Coordinator</th>
-        <th>Housing Coordinator</th>
-        <th>Registrar</th>
-        <th>Medical Staff</th>
-        <th>Community Moderator</th>
-        <th>Staff Viewer</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr><td>housing.read</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="dash">&mdash;</td><td class="dash">&mdash;</td><td class="dash">&mdash;</td><td class="check">&#10003;</td></tr>
-      <tr><td>housing.write</td><td class="dash">&mdash;</td><td class="check">&#10003;</td><td class="dash">&mdash;</td><td class="check">&#10003;</td><td class="dash">&mdash;</td><td class="dash">&mdash;</td><td class="dash">&mdash;</td><td class="dash">&mdash;</td></tr>
-      <tr><td>housing.auto_assign</td><td class="dash">&mdash;</td><td class="check">&#10003;</td><td class="dash">&mdash;</td><td class="check">&#10003;</td><td class="dash">&mdash;</td><td class="dash">&mdash;</td><td class="dash">&mdash;</td><td class="dash">&mdash;</td></tr>
-      <tr><td>volunteers.read</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="dash">&mdash;</td><td class="dash">&mdash;</td><td class="dash">&mdash;</td><td class="check">&#10003;</td></tr>
-      <tr><td>volunteers.write</td><td class="dash">&mdash;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="dash">&mdash;</td><td class="dash">&mdash;</td><td class="dash">&mdash;</td><td class="dash">&mdash;</td><td class="dash">&mdash;</td></tr>
-      <tr><td>volunteers.approve</td><td class="dash">&mdash;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="dash">&mdash;</td><td class="dash">&mdash;</td><td class="dash">&mdash;</td><td class="dash">&mdash;</td><td class="dash">&mdash;</td></tr>
-      <tr><td>volunteers.bgc_manage</td><td class="dash">&mdash;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="dash">&mdash;</td><td class="dash">&mdash;</td><td class="dash">&mdash;</td><td class="dash">&mdash;</td><td class="dash">&mdash;</td></tr>
-      <tr><td>registrations.read</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="dash">&mdash;</td><td class="check">&#10003;</td><td class="dash">&mdash;</td><td class="dash">&mdash;</td><td class="check">&#10003;</td></tr>
-      <tr><td>registrations.write</td><td class="dash">&mdash;</td><td class="check">&#10003;</td><td class="dash">&mdash;</td><td class="dash">&mdash;</td><td class="check">&#10003;</td><td class="dash">&mdash;</td><td class="dash">&mdash;</td><td class="dash">&mdash;</td></tr>
-      <tr><td>registrations.waitlist_manage</td><td class="dash">&mdash;</td><td class="check">&#10003;</td><td class="dash">&mdash;</td><td class="dash">&mdash;</td><td class="check">&#10003;</td><td class="dash">&mdash;</td><td class="dash">&mdash;</td><td class="dash">&mdash;</td></tr>
-      <tr><td>registrations.financial_aid</td><td class="dash">&mdash;</td><td class="check">&#10003;</td><td class="dash">&mdash;</td><td class="dash">&mdash;</td><td class="check">&#10003;</td><td class="dash">&mdash;</td><td class="dash">&mdash;</td><td class="dash">&mdash;</td></tr>
-      <tr><td>sessions.read</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="dash">&mdash;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="dash">&mdash;</td><td class="check">&#10003;</td></tr>
-      <tr><td>sessions.write</td><td class="dash">&mdash;</td><td class="check">&#10003;</td><td class="dash">&mdash;</td><td class="dash">&mdash;</td><td class="dash">&mdash;</td><td class="dash">&mdash;</td><td class="dash">&mdash;</td><td class="dash">&mdash;</td></tr>
-      <tr><td>sessions.close</td><td class="dash">&mdash;</td><td class="check">&#10003;</td><td class="dash">&mdash;</td><td class="dash">&mdash;</td><td class="dash">&mdash;</td><td class="dash">&mdash;</td><td class="dash">&mdash;</td><td class="dash">&mdash;</td></tr>
-      <tr><td>events.read</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="dash">&mdash;</td><td class="dash">&mdash;</td><td class="dash">&mdash;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
-      <tr><td>events.write</td><td class="dash">&mdash;</td><td class="check">&#10003;</td><td class="dash">&mdash;</td><td class="dash">&mdash;</td><td class="dash">&mdash;</td><td class="dash">&mdash;</td><td class="dash">&mdash;</td><td class="dash">&mdash;</td></tr>
-      <tr><td>events.speakers_manage</td><td class="dash">&mdash;</td><td class="check">&#10003;</td><td class="dash">&mdash;</td><td class="dash">&mdash;</td><td class="dash">&mdash;</td><td class="dash">&mdash;</td><td class="check">&#10003;</td><td class="dash">&mdash;</td></tr>
-      <tr><td>forms.read</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="dash">&mdash;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="dash">&mdash;</td><td class="check">&#10003;</td></tr>
-      <tr><td>forms.write</td><td class="dash">&mdash;</td><td class="check">&#10003;</td><td class="dash">&mdash;</td><td class="dash">&mdash;</td><td class="check">&#10003;</td><td class="dash">&mdash;</td><td class="dash">&mdash;</td><td class="dash">&mdash;</td></tr>
-      <tr><td>forms.submissions_view</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="dash">&mdash;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="dash">&mdash;</td><td class="check">&#10003;</td></tr>
-      <tr><td>medical.read</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="dash">&mdash;</td><td class="dash">&mdash;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="dash">&mdash;</td><td class="check">&#10003;</td></tr>
-      <tr><td>medical.write</td><td class="dash">&mdash;</td><td class="check">&#10003;</td><td class="dash">&mdash;</td><td class="dash">&mdash;</td><td class="dash">&mdash;</td><td class="check">&#10003;</td><td class="dash">&mdash;</td><td class="dash">&mdash;</td></tr>
-      <tr><td>reports.view_volunteer</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="dash">&mdash;</td><td class="dash">&mdash;</td><td class="dash">&mdash;</td><td class="dash">&mdash;</td><td class="check">&#10003;</td></tr>
-      <tr><td>reports.view_registration</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="dash">&mdash;</td><td class="dash">&mdash;</td><td class="check">&#10003;</td><td class="dash">&mdash;</td><td class="dash">&mdash;</td><td class="check">&#10003;</td></tr>
-      <tr><td>reports.view_financial</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="dash">&mdash;</td><td class="dash">&mdash;</td><td class="check">&#10003;</td><td class="dash">&mdash;</td><td class="dash">&mdash;</td><td class="dash">&mdash;</td></tr>
-      <tr><td>reports.view_bgc</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="dash">&mdash;</td><td class="dash">&mdash;</td><td class="dash">&mdash;</td><td class="dash">&mdash;</td><td class="dash">&mdash;</td></tr>
-      <tr><td>reports.view_attendance</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="dash">&mdash;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="dash">&mdash;</td><td class="check">&#10003;</td></tr>
-      <tr><td>reports.view_training</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="dash">&mdash;</td><td class="dash">&mdash;</td><td class="dash">&mdash;</td><td class="dash">&mdash;</td><td class="check">&#10003;</td></tr>
-      <tr><td>community.post</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="dash">&mdash;</td></tr>
-      <tr><td>community.moderate</td><td class="dash">&mdash;</td><td class="check">&#10003;</td><td class="dash">&mdash;</td><td class="dash">&mdash;</td><td class="dash">&mdash;</td><td class="dash">&mdash;</td><td class="check">&#10003;</td><td class="dash">&mdash;</td></tr>
-      <tr><td>community.manage_sections</td><td class="dash">&mdash;</td><td class="check">&#10003;</td><td class="dash">&mdash;</td><td class="dash">&mdash;</td><td class="dash">&mdash;</td><td class="dash">&mdash;</td><td class="check">&#10003;</td><td class="dash">&mdash;</td></tr>
-      <tr><td>library.read</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
-      <tr><td>library.write</td><td class="dash">&mdash;</td><td class="check">&#10003;</td><td class="dash">&mdash;</td><td class="dash">&mdash;</td><td class="dash">&mdash;</td><td class="dash">&mdash;</td><td class="dash">&mdash;</td><td class="dash">&mdash;</td></tr>
-      <tr><td>library.delete</td><td class="dash">&mdash;</td><td class="check">&#10003;</td><td class="dash">&mdash;</td><td class="dash">&mdash;</td><td class="dash">&mdash;</td><td class="dash">&mdash;</td><td class="dash">&mdash;</td><td class="dash">&mdash;</td></tr>
-      <tr><td>staff.manage</td><td class="dash">&mdash;</td><td class="check">&#10003;</td><td class="dash">&mdash;</td><td class="dash">&mdash;</td><td class="dash">&mdash;</td><td class="dash">&mdash;</td><td class="dash">&mdash;</td><td class="dash">&mdash;</td></tr>
-    </tbody>
-  </table>
-  </div>
+  <section>
+    <h2>Data Model</h2>
 
-  <!-- 3. Key Design Decisions -->
-  <h2>Key Design Decisions</h2>
+    <h3>Team</h3>
+    <pre><code>class Team(TimeStampedModel):
+    name = models.CharField(max_length=100)
+    affiliate = models.ForeignKey(Affiliate, on_delete=models.CASCADE, related_name="teams")
+    description = models.TextField(blank=True)
+    is_system = models.BooleanField(default=False)
+    session = models.ForeignKey("apps.sessions.Session", null=True, blank=True, on_delete=models.CASCADE)
+    expires_at = models.DateTimeField(null=True, blank=True)  # null = no expiration
 
-  <div class="card">
-    <div class="card-title">a. Restricted by default</div>
-    <p>Affiliates expand, not contract. The default template grants the minimum permissions needed
-    for each role. The Team &amp; Roles UI (<a href="https://github.com/drauthlin/cqportal/issues/305">#305</a>)
-    surfaces available permissions with descriptions, so affiliates can consciously add access where
-    needed.</p>
-  </div>
-
-  <div class="card">
-    <div class="card-title">b. System permission sets can't be deleted</div>
-    <p>Default sets are marked <code>is_system=True</code>. Affiliates can modify permissions within
-    a system set, but they cannot delete it. This prevents accidental removal of a foundational
-    role that staff depend on.</p>
-  </div>
-
-  <div class="card">
-    <div class="card-title">c. Groups are renameable</div>
-    <p>"Housing Coordinator" can become "Cabin Fairy" if your affiliate calls it that. The permission
-    set underneath stays the same &mdash; only the display name changes. This lets affiliates use
-    their own terminology without losing the structured permission backing.</p>
-  </div>
-
-  <div class="card">
-    <div class="card-title">d. Camp Director only &mdash; no Asst. Director</div>
-    <p>There is one operational head role, not two. Affiliates that need an "Assistant Director"
-    can clone the Camp Director permission set and trim permissions to create a custom role. This
-    keeps the default template simple while allowing flexibility.</p>
-  </div>
-
-  <div class="card">
-    <div class="card-title">e. staff.manage on Camp Director only</div>
-    <p>Only Camp Director manages groups and memberships. Affiliate Admin is an oversight role,
-    not an access-configuration role. This separation prevents an oversight-only admin from
-    silently granting themselves or others elevated access.</p>
-  </div>
-
-  <div class="card">
-    <div class="card-title">f. Board governance excluded</div>
-    <p>No board permissions appear in this template. Board access is managed separately via the
-    <code>BoardMember</code> model, which has its own governance lifecycle independent of the
-    group/permission system.</p>
-  </div>
-
-  <!-- 4. Implementation -->
-  <h2>Implementation</h2>
-  <p>
-    Provisioning happens via a Django signal on <code>Affiliate</code> creation, or by calling
-    <code>provision_affiliate_defaults(affiliate)</code> directly. The default permission sets are
-    defined in <code>apps/tenancy/default_permission_sets.py</code> as a data structure &mdash;
-    a list of named sets, each with its permission list.
-  </p>
-  <p>
-    The provisioning function is <strong>idempotent</strong>: re-running it on an existing affiliate
-    will not duplicate groups or permission sets. This means it can safely be called from a migration
-    (see <a href="https://github.com/drauthlin/cqportal/issues/302">#302</a>), from the signal, or
-    manually if something went wrong during initial setup.
-  </p>
-
-  <div class="code-block">
-    <span class="code-lang">python</span>
-<pre><code><span class="syntax-comment"># apps/tenancy/default_permission_sets.py</span>
-<span class="syntax-comment"># Data structure defining the 8 default groups + permission sets</span>
-
-DEFAULT_GROUPS = [
-    {
-        <span class="syntax-string">'name'</span>: <span class="syntax-string">'Affiliate Admin'</span>,
-        <span class="syntax-string">'permissions'</span>: [
-            <span class="syntax-string">'housing.read'</span>, <span class="syntax-string">'volunteers.read'</span>,
-            <span class="syntax-string">'registrations.read'</span>, <span class="syntax-string">'sessions.read'</span>,
-            <span class="syntax-string">'events.read'</span>, <span class="syntax-string">'forms.read'</span>,
-            <span class="syntax-string">'forms.submissions_view'</span>, <span class="syntax-string">'medical.read'</span>,
-            <span class="syntax-string">'reports.view_volunteer'</span>, <span class="syntax-string">'reports.view_registration'</span>,
-            <span class="syntax-string">'reports.view_financial'</span>, <span class="syntax-string">'reports.view_bgc'</span>,
-            <span class="syntax-string">'reports.view_attendance'</span>, <span class="syntax-string">'reports.view_training'</span>,
-            <span class="syntax-string">'community.post'</span>, <span class="syntax-string">'library.read'</span>,
-        ],
-    },
-    {
-        <span class="syntax-string">'name'</span>: <span class="syntax-string">'Camp Director'</span>,
-        <span class="syntax-string">'permissions'</span>: [<span class="syntax-string">'*'</span>],  <span class="syntax-comment"># full operational access</span>
-    },
-    <span class="syntax-comment"># ... 6 more groups</span>
-]
-
-<span class="syntax-keyword">def</span> <span class="syntax-fn">provision_affiliate_defaults</span>(affiliate):
-    <span class="syntax-string">"""Create default groups + permission sets for an affiliate. Idempotent."""</span>
-    <span class="syntax-keyword">for</span> group_def <span class="syntax-keyword">in</span> DEFAULT_GROUPS:
-        perm_set, created = PermissionSet.objects.get_or_create(
-            organization=affiliate.organization,
-            name=group_def[<span class="syntax-string">'name'</span>],
-            defaults={<span class="syntax-string">'permissions'</span>: group_def[<span class="syntax-string">'permissions'</span>], <span class="syntax-string">'is_system'</span>: <span class="syntax-keyword">True</span>},
-        )
-        UserGroup.objects.get_or_create(
-            affiliate=affiliate,
-            name=group_def[<span class="syntax-string">'name'</span>],
-            defaults={<span class="syntax-string">'permission_set'</span>: perm_set},
-        )</code></pre>
-  </div>
-
-  <!-- 5. Questions for the Community -->
-  <div class="callout callout-warning">
-    <div class="callout-title">Questions for the Community</div>
-    <ul style="margin-bottom:0">
-      <li>Are these 8 default groups the right set? Any missing roles your affiliate needs?</li>
-      <li>Is Camp Director having <code>staff.manage</code> correct, or should Affiliate Admin also have it?</li>
-      <li>Should Medical Staff get <code>reports.view_bgc</code> (background check access)? Currently they do not.</li>
-      <li>Should Staff Viewer get more permissions, or is <code>*.read</code> across domains sufficient?</li>
-      <li>Is the "Community Moderator" group needed as a default, or should it be affiliate-opt-in?</li>
+    class Meta:
+        constraints = [
+            UniqueConstraint(fields=["name", "affiliate"], name="unique_team_name_per_affiliate"),
+        ]</code></pre>
+    <ul>
+      <li><code>session</code> is optional. If set, the team is session-scoped. If null, it's a standing team.</li>
+      <li><code>expires_at</code> is optional. Can be set independently of <code>session</code>.</li>
+      <li><code>is_system</code> prevents deletion (no system teams shipped by default, reserved for future).</li>
     </ul>
-  </div>
 
-  <!-- 6. Security Note -->
+    <h3>TeamGroupLink</h3>
+    <pre><code>class TeamGroupLink(TimeStampedModel):
+    team = models.ForeignKey(Team, on_delete=models.CASCADE, related_name="group_links")
+    user_group = models.ForeignKey(UserGroup, on_delete=models.CASCADE, related_name="team_links")
+
+    class Meta:
+        constraints = [
+            UniqueConstraint(fields=["team", "user_group"], name="unique_team_group_link"),
+        ]</code></pre>
+    <p>A team links to one or more <code>UserGroup</code>s. When a user joins the team, they receive membership in all linked groups. When they leave, team-granted memberships are removed (unless the user also has a direct membership).</p>
+
+    <h3>TeamMembership</h3>
+    <pre><code>class TeamMembership(TimeStampedModel):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    team = models.ForeignKey(Team, on_delete=models.CASCADE, related_name="memberships")
+    is_lead = models.BooleanField(default=False)
+    assigned_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL)
+
+    class Meta:
+        constraints = [
+            UniqueConstraint(fields=["user", "team"], name="unique_team_membership"),
+        ]</code></pre>
+    <p><code>is_lead</code> grants the team lead the ability to manage their own team's membership (add/remove members) without needing <code>staff.manage</code>.</p>
+  </section>
+
+  <section>
+    <h2>Permission Resolution</h2>
+    <p>The effective group set for a user becomes:</p>
+    <pre><code>effective_groups(user, affiliate) = direct_groups(user, affiliate) &cup; team_granted_groups(user, affiliate)</code></pre>
+    <p>
+      Where <code>team_granted_groups</code> resolves: for each active <code>TeamMembership</code> (not expired),
+      find the team's <code>TeamGroupLink</code>s, and collect the linked <code>UserGroup</code>s.
+    </p>
+    <p>
+      The permission check (<code>user_has_affiliate_permission</code> from #304) is updated to include
+      team-granted groups in its resolution path. This is a change to the access layer, not a new decorator.
+    </p>
+  </section>
+
+  <section>
+    <h2>Expiration Handling</h2>
+    <ul>
+      <li><strong><code>expires_at</code> timestamp</strong> &mdash; checked at query time. Expired memberships are filtered out. No celery task needed for correctness; a periodic cleanup task can remove expired rows for hygiene.</li>
+      <li><strong><code>session</code> FK</strong> &mdash; when a <code>Session</code> is closed or archived, its teams' memberships are effectively inactive: <code>team.session_id is None OR team.session.status != 'CLOSED'</code>.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>New Routes</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Route</th>
+          <th>View</th>
+          <th>Access</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>/o/&lt;org&gt;/a/&lt;slug&gt;/team/teams/</code></td>
+          <td><code>affiliate_team_list_teams</code></td>
+          <td><code>staff.manage</code> OR team lead of any team</td>
+        </tr>
+        <tr>
+          <td><code>/o/&lt;org&gt;/a/&lt;slug&gt;/team/teams/create/</code></td>
+          <td><code>affiliate_team_create</code></td>
+          <td><code>staff.manage</code></td>
+        </tr>
+        <tr>
+          <td><code>/o/&lt;org&gt;/a/&lt;slug&gt;/team/teams/&lt;pk&gt;/edit/</code></td>
+          <td><code>affiliate_team_edit</code></td>
+          <td><code>staff.manage</code></td>
+        </tr>
+        <tr>
+          <td><code>/o/&lt;org&gt;/a/&lt;slug&gt;/team/teams/&lt;pk&gt;/delete/</code></td>
+          <td><code>affiliate_team_delete</code></td>
+          <td><code>staff.manage</code> (system teams excluded)</td>
+        </tr>
+        <tr>
+          <td><code>/o/&lt;org&gt;/a/&lt;slug&gt;/team/teams/&lt;pk&gt;/members/add/</code></td>
+          <td><code>affiliate_team_member_add</code></td>
+          <td><code>staff.manage</code> OR team lead</td>
+        </tr>
+        <tr>
+          <td><code>/o/&lt;org&gt;/a/&lt;slug&gt;/team/teams/&lt;pk&gt;/members/&lt;pk&gt;/remove/</code></td>
+          <td><code>affiliate_team_member_remove</code></td>
+          <td><code>staff.manage</code> OR team lead</td>
+        </tr>
+      </tbody>
+    </table>
+    <p>These routes are additive to #305's route table. #305 covers groups/permission-sets/permissions management UI; this issue covers the teams UI.</p>
+  </section>
+
+  <section>
+    <h2>Team Lead Permissions</h2>
+    <p>Team leads (users with <code>TeamMembership.is_lead=True</code>) can:</p>
+    <ul>
+      <li>Add and remove members from their own team</li>
+      <li>View their team's group links</li>
+    </ul>
+    <p>Team leads <strong>cannot</strong>:</p>
+    <ul>
+      <li>Edit the team's name, description, or group links (requires <code>staff.manage</code>)</li>
+      <li>Delete the team (requires <code>staff.manage</code>)</li>
+      <li>Create new teams (requires <code>staff.manage</code>)</li>
+      <li>Manage other teams (requires <code>staff.manage</code>)</li>
+    </ul>
+    <p>
+      This is a relationship-based check (<code>TeamMembership.is_lead=True AND team == the_team_in_question</code>),
+      not a <code>PermissionSet</code> permission. This avoids needing a new catalog permission for what is
+      fundamentally a scoped ownership check.
+    </p>
+  </section>
+
+  <section>
+    <h2>What This Issue Does NOT Cover</h2>
+    <ul>
+      <li><strong>Cabin-level scoping</strong> &mdash; scoping access to specific cabins within a session. Requires a <code>cabin</code> FK on <code>TeamMembership</code> or a separate scoping model. Explicitly deferred.</li>
+      <li><strong>Team permission sets</strong> &mdash; teams grant groups, not permission sets directly.</li>
+      <li><strong>Cross-affiliate teams</strong> &mdash; teams are scoped to a single affiliate.</li>
+      <li><strong>Team inheritance</strong> &mdash; no nesting of teams within teams.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Open Questions</h2>
+    <div class="callout callout-info">
+      <div class="callout-title">We want your input</div>
+      <ol>
+        <li><strong>Session scoping vs membership scoping</strong> &mdash; This issue proposes <strong>team-level scoping</strong>: the team is session-scoped, and all memberships within it inherit that scope. Is this the right level?</li>
+        <li><strong>Should team leads be a <code>PermissionSet</code> permission?</strong> Currently proposed as a relationship check (<code>is_lead</code>). The alternative is adding <code>team.lead</code> to the permission catalog. Which is cleaner?</li>
+        <li><strong>Expiration cleanup</strong> &mdash; Should expired <code>TeamMembership</code> rows be cleaned up by a periodic task, or just filtered at query time?</li>
+      </ol>
+    </div>
+  </section>
+
   <div class="security-note">
     <div class="security-header">Security Considerations</div>
     <ul>
-      <li>Default permission sets are restricted &mdash; affiliates must consciously expand</li>
-      <li><code>staff.manage</code> granted to Camp Director only by default</li>
-      <li>System permission sets cannot be deleted (<code>is_system=True</code>)</li>
-      <li>Provisioning is idempotent &mdash; safe to re-run without duplication</li>
-      <li>Medical Staff do <strong>not</strong> get financial reports, BGC status, or volunteer management by default</li>
+      <li>Team-granted groups are resolved at query time &mdash; no stale access after expiration</li>
+      <li>Team leads can only manage their own team's membership, not edit team structure</li>
+      <li>All team operations are audit-logged via <code>log_action()</code></li>
+      <li>Cross-org isolation enforced &mdash; no access to other affiliates' teams</li>
+      <li>Central superadmins retain escalation into any affiliate's teams</li>
+      <li>Direct group memberships are preserved when a team-granted group is removed &mdash; no accidental privilege loss</li>
     </ul>
   </div>
 
-  <!-- 7. CTA -->
   <div class="cta-box">
-    <h2>Review the Default Template</h2>
-    <p>Are these the right default groups and permissions for your affiliate? What would you change? Comment on the issue.</p>
+    <h2>Review the Teams Model</h2>
+    <p>
+      Does the team concept work for your camp's workflow? Are the three open questions clear?
+      Comment on the issue with your feedback.
+    </p>
     <div class="cta-buttons">
-      <a href="https://github.com/drauthlin/cqportal/issues/303" class="cta-button primary" target="_blank" rel="noopener">GitHub Issue</a>
+      <a href="https://github.com/drauthlin/cqportal/issues/306" class="cta-button primary" target="_blank" rel="noopener">GitHub Issue</a>
       <a href="epic-300.html" class="cta-button">Back to Epic</a>
-      
     </div>
   </div>
 
@@ -1116,7 +1140,7 @@ DEFAULT_GROUPS = [
 
 <footer class="footer">
   <div class="container">
-    <span>CQPortal RBAC Redesign | Issue #303 | Default Template</span>
+    <span>CQPortal RBAC Redesign | Issue #306 | Teams &amp; Session Scoping</span>
   </div>
 </footer>
 
