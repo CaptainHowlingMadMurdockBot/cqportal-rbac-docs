@@ -865,6 +865,52 @@ tbody tr:hover { background: var(--bg-subtle); }
 .fw-700 { font-weight: 700; }
 .text-sm { font-size: 0.85rem; }
 .text-xs { font-size: 0.75rem; }
+
+/* -- Functional Demo -- */
+.demo {
+  background: var(--bg-subtle, #f6f8fa);
+  border: 1px solid var(--border, #d0d7de);
+  border-radius: 0.75rem;
+  padding: 1.5rem;
+  margin: 1rem 0;
+}
+.demo h3 {
+  font-family: var(--font-heading, 'Nunito', sans-serif);
+  font-size: 1rem;
+  font-weight: 700;
+  margin: 0 0 0.75rem 0;
+  color: var(--text, #1a2533);
+}
+.demo form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.demo label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+.demo label input[type="checkbox"] {
+  width: 1.1rem;
+  height: 1.1rem;
+  accent-color: var(--cq-primary, #0084b7);
+  cursor: pointer;
+}
+.demo pre {
+  background: var(--bg-inset, #1a2533);
+  color: var(--text-invert, #e8edf2);
+  padding: 1rem;
+  border-radius: 0.5rem;
+  font-size: 0.8rem;
+  line-height: 1.6;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin: 0;
+}
 </style>
 </head>
 <body>
@@ -881,9 +927,7 @@ tbody tr:hover { background: var(--bg-subtle); }
 <div class="container content">
 
   <nav class="breadcrumb">
-    <a href="#">Home</a>
-    <span class="sep">/</span>
-    <a href="#">Issues</a>
+    <span>RBAC Redesign</span>
     <span class="sep">/</span>
     <span>#300</span>
   </nav>
@@ -1036,6 +1080,30 @@ tbody tr:hover { background: var(--bg-subtle); }
   </section>
 
   <section>
+    <h2>Functional Demo</h2>
+    <p>
+      Select a few groups and see what permissions they give you combined.
+      This demonstrates the additive idea: your effective permissions are just
+      the union of what each group grants.
+    </p>
+    <div class="demo">
+      <h3>Select Groups</h3>
+      <form id="groupForm">
+        <label><input type="checkbox" value="affiliate-admin"> Affiliate Admin</label><br>
+        <label><input type="checkbox" value="camp-director"> Camp Director</label><br>
+        <label><input type="checkbox" value="volunteer-coordinator"> Volunteer Coordinator</label><br>
+        <label><input type="checkbox" value="housing-coordinator"> Housing Coordinator</label><br>
+        <label><input type="checkbox" value="registrar"> Registrar</label><br>
+        <label><input type="checkbox" value="medical-staff"> Medical Staff</label><br>
+        <label><input type="checkbox" value="community-moderator"> Community Moderator</label><br>
+        <label><input type="checkbox" value="staff-viewer"> Staff Viewer</label><br>
+      </form>
+      <h3>Effective Permissions</h3>
+      <pre id="permissionsOutput">(no groups selected)</pre>
+    </div>
+  </section>
+
+  <section>
     <h2>Design Principles</h2>
     <div class="card">
       <div class="card-title">1. Restricted by default</div>
@@ -1074,7 +1142,7 @@ tbody tr:hover { background: var(--bg-subtle); }
 
   <section>
     <h2>Implementation Issues</h2>
-    <p>The epic is broken into five sequential issues. Each builds on the one before it.</p>
+    <p>The epic is broken into six sequential issues. Each builds on the one before it.</p>
 
     <a href="issue-301.html" class="issue-card">
       <div class="issue-card-num">#301</div>
@@ -1300,6 +1368,38 @@ tbody tr:hover { background: var(--bg-subtle); }
   });
 })();
 </script>
+
+<script>
+    const permissionMap = {
+      'affiliate-admin': ['library.read', 'sessions.read', 'reports.*'],
+      'camp-director': ['housing.*', 'sessions.*', 'events.*', 'volunteers.read', 'forms.*', 'reports.*', 'community.moderate', 'staff.manage'],
+      'volunteer-coordinator': ['volunteers.*', 'reports.view_volunteer', 'reports.view_training', 'community.post'],
+      'housing-coordinator': ['housing.*', 'sessions.read'],
+      'registrar': ['registrations.*', 'forms.*', 'sessions.read', 'housing.read'],
+      'medical-staff': ['medical.*', 'sessions.read', 'reports.view_attendance'],
+      'community-moderator': ['community.moderate', 'community.manage_sections'],
+      'staff-viewer': ['*.read']
+    };
+    const form = document.getElementById('groupForm');
+    const output = document.getElementById('permissionsOutput');
+    function updatePermissions() {
+      const selected = Array.from(form.elements)
+        .filter(el => el.type === 'checkbox' && el.checked)
+        .map(el => el.value);
+      const perms = new Set();
+      selected.forEach(group => {
+        (permissionMap[group] || []).forEach(p => perms.add(p));
+      });
+      if (perms.size === 0) {
+        output.textContent = '(no groups selected)';
+      } else {
+        output.textContent = Array.from(perms).sort().join(', ');
+      }
+    }
+    form.addEventListener('change', updatePermissions);
+    // Initialize
+    updatePermissions();
+  </script>
 
 </body>
 </html>
